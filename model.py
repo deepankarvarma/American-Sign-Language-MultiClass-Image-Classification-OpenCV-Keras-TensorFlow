@@ -4,7 +4,7 @@ import shutil
 import random
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout
-from tensorflow.keras.models import Model,Input
+from tensorflow.keras import Model, Input
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.optimizers import Adam
 # Define the training and test data directories
@@ -26,14 +26,12 @@ test_datagen = ImageDataGenerator(rescale=1./255)
 train_generator = train_datagen.flow_from_directory(train_dir,
                                                     target_size=(224, 224),
                                                     batch_size=32,
-                                                    class_mode='categorical',
-                                                    subset='training',
+                                                    class_mode='categorical',                                            
                                                     seed =42)
 test_generator = test_datagen.flow_from_directory(test_dir,
                                                   target_size=(224, 224),
                                                   batch_size=32,
                                                   class_mode='categorical',
-                                                  subset='validation',
                                                   shuffle=False,
                                                   seed=42)
 
@@ -41,29 +39,30 @@ test_generator = test_datagen.flow_from_directory(test_dir,
 base_model = MobileNetV2(
     input_shape=(224, 224, 3),
     include_top=False,
+    weights='imagenet'
 )
 base_model.trainable = False
-inputs = Input(shape=(224, 224, 3))
-x = base_model(inputs)
-x = GlobalAveragePooling2D()(x)
-x = Dropout(rate=0.2)(x)
-outputs = Dense(units=5, activation="softmax")(x)
-
-# Combine the base model with the new layers
-model = Model(inputs=base_model.input, outputs=outputs)
 
 # Freeze the base model layers
 for layer in base_model.layers:
     layer.trainable = False
-LEARNING_RATE = 0.001
+
+# Combine the base model with the new layers
+x = base_model.output
+x = GlobalAveragePooling2D()(x)
+x = Dropout(rate=0.2)(x)
+outputs = Dense(units=36, activation="softmax")(x)
+model = Model(inputs=base_model.input, outputs=outputs)
+
 # Compile the model
+LEARNING_RATE = 0.001
 model.compile(optimizer=Adam(learning_rate=LEARNING_RATE),
               loss='categorical_crossentropy',
               metrics=['accuracy'])
 
 # Train the model
 history = model.fit(train_generator,
-                    epochs=3,
+                    epochs=15,
                     validation_data=test_generator)
 
 # Evaluate the model on the test set
